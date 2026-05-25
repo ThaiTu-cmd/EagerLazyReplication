@@ -1,0 +1,56 @@
+services:
+  node_a_primary:
+    image: eagerlazyreplication-node:latest
+    build: ./node_app
+    container_name: node_a_primary
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    volumes:
+      - node_a_data:/app/data
+    environment:
+      - NODE_NAME=Node_A_Primary
+      - NODE_TYPE=PRIMARY
+      # Node A biết địa chỉ mạng nội bộ của Node B và Node C trong Docker
+      - REPLICAS=http://node_b_replica:8000,http://node_c_replica:8000
+    networks:
+      - replication_nw
+
+  node_b_replica:
+    image: eagerlazyreplication-node:latest
+    build: ./node_app
+    container_name: node_b_replica
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    volumes:
+      - node_b_data:/app/data
+    environment:
+      - NODE_NAME=Node_B_Replica
+      - NODE_TYPE=REPLICA
+    networks:
+      - replication_nw
+
+  node_c_replica:
+    image: eagerlazyreplication-node:latest
+    build: ./node_app
+    container_name: node_c_replica
+    restart: unless-stopped
+    ports:
+      - "8003:8000"
+    volumes:
+      - node_c_data:/app/data
+    environment:
+      - NODE_NAME=Node_C_Replica
+      - NODE_TYPE=REPLICA
+    networks:
+      - replication_nw
+
+networks:
+  replication_nw:
+    driver: bridge
+
+volumes:
+  node_a_data:
+  node_b_data:
+  node_c_data:

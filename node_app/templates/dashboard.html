@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Distributed Replication Research</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f4f6f9;
+        margin: 0;
+        padding: 20px;
+        color: #333;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      header {
+        background: #1e3a8a;
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+      .card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        border-top: 5px solid #3b82f6;
+        text-align: center;
+      }
+      .card.primary {
+        border-top-color: #10b981;
+      }
+      .status-badge {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 14px;
+        margin-top: 10px;
+      }
+      .online {
+        background: #d1fae5;
+        color: #065f46;
+      }
+      .offline {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .number {
+        font-size: 36px;
+        font-weight: bold;
+        margin: 15px 0;
+        color: #1f2937;
+      }
+      .chart-box {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      }
+      .control-box {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        margin-bottom: 20px;
+      }
+      .control-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 12px;
+        align-items: end;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .field label {
+        font-weight: 600;
+      }
+      .field select,
+      .field input,
+      button {
+        height: 40px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        padding: 0 12px;
+        font-size: 14px;
+      }
+      .field input::placeholder {
+        color: #94a3b8;
+      }
+      button {
+        background: #1e3a8a;
+        color: white;
+        border: none;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .secondary-btn {
+        background: #475569;
+      }
+      .danger-btn {
+        background: #dc2626;
+      }
+      .bottom-actions {
+        margin-top: 16px;
+        display: flex;
+        justify-content: center;
+      }
+      .bottom-actions button {
+        min-width: 260px;
+      }
+      button:disabled {
+        background: #93a3c7;
+        cursor: not-allowed;
+      }
+      .progress-wrap {
+        margin-top: 15px;
+      }
+      .progress-bar {
+        width: 100%;
+        height: 16px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        overflow: hidden;
+      }
+      .progress-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #2563eb, #10b981);
+        transition: width 0.12s linear;
+      }
+      .result-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 15px;
+      }
+      .result-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px;
+      }
+      .result-item .label {
+        color: #64748b;
+        font-size: 13px;
+      }
+      .result-item .value {
+        margin-top: 4px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .log-box {
+        margin-top: 15px;
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 8px;
+        padding: 12px;
+        height: 260px;
+        overflow-y: auto;
+        font-family: Consolas, Monaco, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .muted {
+        color: #64748b;
+      }
+      @media (max-width: 900px) {
+        .grid,
+        .result-row {
+          grid-template-columns: 1fr;
+        }
+        .control-row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🔬 Nghiên Cứu Hệ Thống Phân Tán: Eager vs Lazy</h1>
+        <p>Đề tài #49: Transaction Ledger | Học thuyết Özsu & Valduriez</p>
+      </header>
+
+      <h2>1. Giám Sát Real-time Số Dòng Database Độc Lập</h2>
+      <div class="grid">
+        <div class="card primary">
+          <h3>NODE A (Primary)</h3>
+          <p>Cổng hệ thống: 8001</p>
+          <div class="number" id="records-a">0</div>
+          <span class="status-badge online" id="status-a">🟢 Online</span>
+        </div>
+        <div class="card">
+          <h3>NODE B (Replica 1)</h3>
+          <p>Cổng hệ thống: 8002</p>
+          <div class="number" id="records-b">0</div>
+          <span class="status-badge online" id="status-b">🟢 Online</span>
+        </div>
+        <div class="card">
+          <h3>NODE C (Replica 2)</h3>
+          <p>Cổng hệ thống: 8003</p>
+          <div class="number" id="records-c">0</div>
+          <span class="status-badge online" id="status-c">🟢 Online</span>
+        </div>
+      </div>
+
+      <h2>2. Chạy Benchmark Trực Tiếp Trên HTML</h2>
+      <div class="control-box">
+        <div class="control-row">
+          <div class="field">
+            <label for="mode">Replication Mode</label>
+            <select id="mode">
+              <option value="eager">Eager (Đồng bộ)</option>
+              <option value="lazy">Lazy (Bất đồng bộ)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="limit">Số lượng giao dịch</label>
+            <input
+              id="limit"
+              type="number"
+              min="0"
+              max="10000"
+              placeholder="0 - 10000"
+            />
+          </div>
+          <button id="run-btn">Bắt đầu chạy</button>
+        </div>
+        <div class="progress-wrap">
+          <div class="muted" id="run-status">Sẵn sàng chạy benchmark.</div>
+          <div class="progress-bar" style="margin-top: 8px">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+        </div>
+        <div class="result-row">
+          <div class="result-item">
+            <div class="label">Thời gian chạy</div>
+            <div class="value" id="elapsed">0.00s</div>
+          </div>
+          <div class="result-item">
+            <div class="label">Giao dịch thành công</div>
+            <div class="value" id="success-count">0</div>
+          </div>
+          <div class="result-item">
+            <div class="label">Thông lượng (TPS)</div>
+            <div class="value" id="tps-result">0.00</div>
+          </div>
+        </div>
+        <div class="log-box" id="log-box"></div>
+      </div>
+
+      <h2>3. Biểu Đồ Kết Quả Thông Lượng (Throughput Metric)</h2>
+      <div class="chart-box">
+        <canvas id="tpsChart"></canvas>
+      </div>
+      <div class="bottom-actions">
+        <button id="reset-btn" class="danger-btn">RESET</button>
+      </div>
+    </div>
+
+    <script>
+      const runBtn = document.getElementById("run-btn");
+      const resetBtn = document.getElementById("reset-btn");
+      const modeEl = document.getElementById("mode");
+      const limitEl = document.getElementById("limit");
+      const progressFill = document.getElementById("progress-fill");
+      const runStatus = document.getElementById("run-status");
+      const elapsedEl = document.getElementById("elapsed");
+      const successCountEl = document.getElementById("success-count");
+      const tpsResultEl = document.getElementById("tps-result");
+      const logBox = document.getElementById("log-box");
+
+      // Hàm tự động gọi API lấy số dòng của từng Node để cập nhật lên giao diện mỗi 1 giây
+      async function updateMetrics() {
+        // Check Node A
+        try {
+          let resA = await fetch("http://localhost:8001/metrics");
+          let dataA = await resA.json();
+          document.getElementById("records-a").innerText = dataA.total_records;
+          document.getElementById("status-a").className = "status-badge online";
+          document.getElementById("status-a").innerText = "🟢 Online";
+        } catch (e) {
+          document.getElementById("status-a").className =
+            "status-badge offline";
+          document.getElementById("status-a").innerText = "🔴 Mất Kết Nối";
+        }
+
+        // Check Node B
+        try {
+          let resB = await fetch("http://localhost:8002/metrics");
+          let dataB = await resB.json();
+          document.getElementById("records-b").innerText = dataB.total_records;
+          document.getElementById("status-b").className = "status-badge online";
+          document.getElementById("status-b").innerText = "🟢 Online";
+        } catch (e) {
+          document.getElementById("status-b").className =
+            "status-badge offline";
+          document.getElementById("status-b").innerText = "🔴 Mất Kết Nối";
+        }
+
+        // Check Node C
+        try {
+          let resC = await fetch("http://localhost:8003/metrics");
+          let dataC = await resC.json();
+          document.getElementById("records-c").innerText = dataC.total_records;
+          document.getElementById("status-c").className = "status-badge online";
+          document.getElementById("status-c").innerText = "🟢 Online";
+        } catch (e) {
+          document.getElementById("status-c").className =
+            "status-badge offline";
+          document.getElementById("status-c").innerText = "🔴 Mất Kết Nối";
+        }
+      }
+
+      // Tự động quét cập nhật dữ liệu liên tục sau mỗi 1000ms (1 giây)
+      updateMetrics();
+      setInterval(updateMetrics, 1000);
+
+      const tpsState = {
+        eager: 0,
+        lazy: 0,
+      };
+
+      const defaults = {
+        mode: "eager",
+        limit: "",
+        runStatus: "Sẵn sàng chạy benchmark.",
+      };
+
+      function addLog(message) {
+        const now = new Date().toLocaleTimeString("vi-VN", { hour12: false });
+        logBox.innerHTML += `[${now}] ${message}<br/>`;
+        logBox.scrollTop = logBox.scrollHeight;
+      }
+
+      function resetRunUi() {
+        progressFill.style.width = "0%";
+        elapsedEl.innerText = "0.00s";
+        successCountEl.innerText = "0";
+        tpsResultEl.innerText = "0.00";
+        logBox.innerHTML = "";
+      }
+
+      function resetDashboard() {
+        modeEl.value = defaults.mode;
+        limitEl.value = defaults.limit;
+        runStatus.innerText = defaults.runStatus;
+
+        tpsState.eager = 0;
+        tpsState.lazy = 0;
+        tpsChart.data.datasets[0].data = [0, 0];
+        tpsChart.update();
+
+        resetRunUi();
+      }
+
+      async function resetSystem() {
+        runBtn.disabled = true;
+        resetBtn.disabled = true;
+        runStatus.innerText = "Đang reset dữ liệu node A/B/C...";
+
+        try {
+          const response = await fetch("http://localhost:8001/reset-all", {
+            method: "POST",
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          resetDashboard();
+          await updateMetrics();
+        } catch (error) {
+          runStatus.innerText = `Reset thất bại: ${error.message}`;
+        } finally {
+          runBtn.disabled = false;
+          resetBtn.disabled = false;
+        }
+      }
+
+      function buildTransaction(index) {
+        const amount = ((index * 37) % 10000) + 100;
+        return {
+          Transaction_ID: `TX_${Date.now()}_${index}`,
+          Account_ID: `ACC_${100000 + index}`,
+          Timestamp: new Date().toISOString(),
+          Transaction_Type: index % 2 === 0 ? "DEPOSIT" : "WITHDRAW",
+          Amount: amount,
+          Status: "PENDING",
+        };
+      }
+
+      async function runBenchmark() {
+        const mode = modeEl.value;
+        const total = Math.max(0, Math.min(10000, Number(limitEl.value) || 0));
+        const start = performance.now();
+        let success = 0;
+
+        runBtn.disabled = true;
+        resetBtn.disabled = true;
+        resetRunUi();
+        runStatus.innerText = `Đang chạy ${total} giao dịch theo mode ${mode.toUpperCase()}...`;
+        addLog(`START benchmark mode=${mode}, total=${total}`);
+
+        for (let i = 1; i <= total; i += 1) {
+          const txData = buildTransaction(i);
+          try {
+            const response = await fetch(
+              `http://localhost:8001/write?mode=${mode}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(txData),
+              },
+            );
+
+            if (response.ok) {
+              success += 1;
+              addLog(
+                `OK #${i} ${txData.Transaction_ID} amount=${txData.Amount.toFixed(2)}`,
+              );
+            } else {
+              const errorText = await response.text();
+              addLog(`FAIL #${i} status=${response.status} ${errorText}`);
+            }
+          } catch (error) {
+            addLog(`ERROR #${i} ${error.message}`);
+          }
+
+          const progress = (i / total) * 100;
+          progressFill.style.width = `${progress.toFixed(2)}%`;
+          successCountEl.innerText = String(success);
+        }
+
+        const elapsed = (performance.now() - start) / 1000;
+        const tps = elapsed > 0 ? success / elapsed : 0;
+
+        elapsedEl.innerText = `${elapsed.toFixed(2)}s`;
+        tpsResultEl.innerText = tps.toFixed(2);
+        runStatus.innerText = `Hoàn tất: ${success}/${total} giao dịch thành công.`;
+        addLog(
+          `DONE elapsed=${elapsed.toFixed(2)}s success=${success}/${total} tps=${tps.toFixed(2)}`,
+        );
+
+        if (mode === "eager") {
+          tpsState.eager = tps;
+        } else {
+          tpsState.lazy = tps;
+        }
+        tpsChart.data.datasets[0].data = [tpsState.eager, tpsState.lazy];
+        tpsChart.update();
+
+        runBtn.disabled = false;
+        resetBtn.disabled = false;
+      }
+
+      runBtn.addEventListener("click", runBenchmark);
+      resetBtn.addEventListener("click", resetSystem);
+
+      // Cấu hình vẽ biểu đồ cột với dữ liệu benchmark chạy trực tiếp từ HTML
+      const ctx = document.getElementById("tpsChart").getContext("2d");
+      const tpsChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: ["Eager (Đồng bộ)", "Lazy (Bất đồng bộ)"],
+          datasets: [
+            {
+              label: "Thông lượng thực nghiệm từ HTML (TPS)",
+              data: [0, 0],
+              backgroundColor: ["#ef4444", "#10b981"],
+              borderWidth: 1,
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            legend: {
+              display: false,
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "Giao dịch / Giây (TPS)" },
+            },
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
