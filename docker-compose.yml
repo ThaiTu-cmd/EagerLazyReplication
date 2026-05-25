@@ -11,7 +11,6 @@ services:
     environment:
       - NODE_NAME=Node_A_Primary
       - NODE_TYPE=PRIMARY
-      # Node A biết địa chỉ mạng nội bộ của Node B và Node C trong Docker
       - REPLICAS=http://node_b_replica:8000,http://node_c_replica:8000
     networks:
       - replication_nw
