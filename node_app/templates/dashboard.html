@@ -393,12 +393,22 @@
         }
       }
 
+      function localTimestamp() {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const offset = -d.getTimezoneOffset();
+        const sign = offset >= 0 ? "+" : "-";
+        const hh = pad(Math.floor(Math.abs(offset) / 60));
+        const mm = pad(Math.abs(offset) % 60);
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, "0")}${sign}${hh}:${mm}`;
+      }
+
       function buildTransaction(index) {
         const amount = ((index * 37) % 10000) + 100;
         return {
           Transaction_ID: `TX_${Date.now()}_${index}`,
           Account_ID: `ACC_${100000 + index}`,
-          Timestamp: new Date().toISOString(),
+          Timestamp: localTimestamp(),
           Transaction_Type: index % 2 === 0 ? "DEPOSIT" : "WITHDRAW",
           Amount: amount,
           Status: "PENDING",
@@ -431,8 +441,20 @@
 
             if (response.ok) {
               success += 1;
+              const txId = txData.Transaction_ID;
+              const checkNode = async (port) => {
+                try {
+                  const r = await fetch(`http://localhost:${port}/check/${txId}`);
+                  if (!r.ok) return "?";
+                  const d = await r.json();
+                  return d.exists ? "✓" : "✗";
+                } catch { return "?"; }
+              };
+              const [sA, sB, sC] = await Promise.all([
+                checkNode(8001), checkNode(8002), checkNode(8003),
+              ]);
               addLog(
-                `OK #${i} ${txData.Transaction_ID} amount=${txData.Amount.toFixed(2)}`,
+                `OK #${i} ${txId} amount=${txData.Amount.toFixed(2)} node_a=${sA} node_b=${sB} node_c=${sC}`,
               );
             } else {
               const errorText = await response.text();

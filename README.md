@@ -26,6 +26,5 @@ Steps:
 
 ## Notes
 
-- Each node stores SQLite data in its own named volume:
-  - `node_a_data`, `node_b_data`, `node_c_data`
+- MySQL data is persisted in the named volume `mysql_data`.
 - Build context is limited by `node_app/.dockerignore` for faster and cleaner image builds.

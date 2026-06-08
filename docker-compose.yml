@@ -1,4 +1,25 @@
 services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: replication_db
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - replication_nw
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   node_a_primary:
     image: eagerlazyreplication-node:latest
     build: ./node_app
@@ -6,14 +27,21 @@ services:
     restart: unless-stopped
     ports:
       - "8001:8000"
-    volumes:
-      - node_a_data:/app/data
     environment:
       - NODE_NAME=Node_A_Primary
       - NODE_TYPE=PRIMARY
+      - NODE_TABLE=node_a
       - REPLICAS=http://node_b_replica:8000,http://node_c_replica:8000
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=appuser
+      - DB_PASS=apppass
+      - DB_NAME=replication_db
     networks:
       - replication_nw
+    depends_on:
+      db:
+        condition: service_healthy
 
   node_b_replica:
     image: eagerlazyreplication-node:latest
@@ -22,13 +50,20 @@ services:
     restart: unless-stopped
     ports:
       - "8002:8000"
-    volumes:
-      - node_b_data:/app/data
     environment:
       - NODE_NAME=Node_B_Replica
       - NODE_TYPE=REPLICA
+      - NODE_TABLE=node_b
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=appuser
+      - DB_PASS=apppass
+      - DB_NAME=replication_db
     networks:
       - replication_nw
+    depends_on:
+      db:
+        condition: service_healthy
 
   node_c_replica:
     image: eagerlazyreplication-node:latest
@@ -37,19 +72,24 @@ services:
     restart: unless-stopped
     ports:
       - "8003:8000"
-    volumes:
-      - node_c_data:/app/data
     environment:
       - NODE_NAME=Node_C_Replica
       - NODE_TYPE=REPLICA
+      - NODE_TABLE=node_c
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=appuser
+      - DB_PASS=apppass
+      - DB_NAME=replication_db
     networks:
       - replication_nw
+    depends_on:
+      db:
+        condition: service_healthy
 
 networks:
   replication_nw:
     driver: bridge
 
 volumes:
-  node_a_data:
-  node_b_data:
-  node_c_data:
+  mysql_data:
